@@ -71,83 +71,22 @@
   .dept-bar-wrap{background:var(--gray-100);border-radius:6px;height:8px;width:100%;overflow:hidden;}
   .dept-bar{background:var(--purple);height:100%;border-radius:6px;}
   .amt{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
-  .pipe-cell{text-align:center;border-radius:6px;font-weight:600;font-variant-numeric:tabular-nums;}
+  .ot-cell{text-align:center;border-radius:6px;font-weight:600;font-variant-numeric:tabular-nums;}
 
   .note{margin-top:18px;font-size:11.5px;color:var(--gray-400);text-align:center;}
   .loading{padding:40px;text-align:center;color:var(--gray-400);font-size:13px;}
 
-  .layout{display:flex;min-height:100vh;}
-  .sidebar{
-    width:220px;flex-shrink:0;background:#fff;border-right:1px solid var(--border);
-    padding:22px 16px;display:flex;flex-direction:column;
-  }
-  .brand{display:flex;align-items:center;gap:10px;margin-bottom:26px;padding:0 8px;}
-  .brand-mark{width:28px;height:28px;border-radius:8px;background:var(--purple);flex-shrink:0;}
-  .brand-title{font-weight:700;font-size:14px;line-height:1.2;}
-  .brand-sub{font-size:10.5px;color:var(--gray-400);letter-spacing:.04em;}
-  .nav-group-label{
-    font-size:11px;color:var(--gray-400);margin:18px 8px 6px;
-    text-transform:uppercase;letter-spacing:.04em;
-  }
-  .nav-item{
-    padding:9px 10px;border-radius:8px;font-size:13px;color:var(--gray-600);
-    margin-bottom:2px;display:flex;justify-content:space-between;align-items:center;
-  }
-  .nav-item.active{background:var(--purple-light);color:var(--purple-dark);font-weight:700;}
-  .nav-item.disabled{color:var(--gray-400);}
-  .soon{font-size:9.5px;background:var(--gray-100);color:var(--gray-400);padding:2px 6px;border-radius:10px;}
-  .sidebar-footer{
-    margin-top:auto;display:flex;align-items:center;gap:9px;
-    padding:14px 8px 0;border-top:1px solid var(--border);
-  }
-  .avatar{width:28px;height:28px;border-radius:50%;background:var(--purple-mid);flex-shrink:0;}
-  .footer-name{font-size:12.5px;font-weight:700;}
-  .footer-role{font-size:11px;color:var(--gray-400);}
-
-  .main{flex:1;min-width:0;}
-
   @media(max-width:860px){
     .cards{grid-template-columns:repeat(2,1fr);}
     .row{grid-template-columns:1fr;}
-    .sidebar{display:none;}
   }
 </style>
 </head>
 <body>
-<div class="layout">
-  <aside class="sidebar">
-    <div class="brand">
-      <div class="brand-mark"></div>
-      <div>
-        <div class="brand-title">인사관리</div>
-        <div class="brand-sub">HR OPS</div>
-      </div>
-    </div>
-    <nav>
-      <div class="nav-group-label">현황</div>
-      <div class="nav-item active">대시보드</div>
-      <div class="nav-item disabled">인원 현황<span class="soon">준비중</span></div>
-      <div class="nav-item disabled">입·퇴사<span class="soon">준비중</span></div>
-      <div class="nav-group-label">데이터</div>
-      <div class="nav-item disabled">급여·인건비<span class="soon">준비중</span></div>
-      <div class="nav-item disabled">근태<span class="soon">준비중</span></div>
-      <div class="nav-item disabled">조직도<span class="soon">준비중</span></div>
-      <div class="nav-item disabled">리포트<span class="soon">준비중</span></div>
-    </nav>
-    <div class="sidebar-footer">
-      <div class="avatar"></div>
-      <div>
-        <div class="footer-name">두오모</div>
-        <div class="footer-role">인사총무팀</div>
-      </div>
-    </div>
-  </aside>
-
-<main class="main">
 <div class="wrap">
   <header>
     <h1>인사 대시보드</h1>
-    <p>재직 인원 · 인건비 비중 · 이직률 · 채용 진행 현황</p>
+    <p>재직 인원 · 인건비 비중 · 이직률 · 초과근무 현황</p>
   </header>
 
   <div class="cards" id="cards">
@@ -183,17 +122,15 @@
       </table>
     </div>
     <div class="panel">
-      <h2>채용 파이프라인 (지원 ~ 합격 단계)</h2>
-      <table id="pipe-table">
-        <thead><tr id="pipe-head"><th>포지션</th></tr></thead>
-        <tbody id="pipe-body"></tbody>
+      <h2>부서별 초과근무 (월 시간대별 인원수)</h2>
+      <table id="ot-table">
+        <thead><tr id="ot-head"><th>부서</th></tr></thead>
+        <tbody id="ot-body"></tbody>
       </table>
     </div>
   </div>
 
   <div class="note" id="footnote">데이터는 Supabase와 연결되어 있습니다. 표의 값을 수정하고 새로고침하면 화면에 반영됩니다.</div>
-</div>
-</main>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -209,21 +146,20 @@ const fmt = n => Number(n).toLocaleString('ko-KR');
 
 async function main(){
   try{
-    const [{data:monthly,error:e1},{data:dept,error:e2},{data:tenure,error:e3},{data:positions,error:e4},{data:pipeline,error:e5}] = await Promise.all([
+    const [{data:monthly,error:e1},{data:dept,error:e2},{data:tenure,error:e3},{data:ot,error:e4}] = await Promise.all([
       db.from('hr_monthly').select('*').order('sort_order',{ascending:true}),
       db.from('hr_dept').select('*'),
       db.from('hr_tenure').select('*').order('sort_order',{ascending:true}),
-      db.from('hr_recruit_positions').select('*'),
-      db.from('hr_recruit_pipeline').select('*').order('sort_order',{ascending:true})
+      db.from('hr_overtime').select('*')
     ]);
-    if(e1||e2||e3||e4||e5) throw (e1||e2||e3||e4||e5);
+    if(e1||e2||e3||e4) throw (e1||e2||e3||e4);
     if(!monthly?.length) throw new Error('hr_monthly 데이터가 없습니다.');
 
-    renderCards(monthly, positions);
+    renderCards(monthly);
     renderMonthlyChart(monthly);
     renderDonut(tenure, monthly);
     renderDeptTable(dept);
-    renderPipelineTable(pipeline);
+    renderOvertimeTable(ot);
   }catch(err){
     document.getElementById('cards').innerHTML =
       '<div class="loading">데이터를 불러오지 못했습니다. F12 → Console 탭의 빨간 글씨를 확인해주세요.<br>('+ (err.message||err) +')</div>';
@@ -231,8 +167,9 @@ async function main(){
   }
 }
 
-function renderCards(monthly, positions){
+function renderCards(monthly){
   const cur = monthly[monthly.length-1];
+  const prev = monthly[monthly.length-2] || cur;
 
   const payrollRatio = (cur.payroll / cur.revenue * 100);
   const payrollOk = payrollRatio <= 35;
@@ -242,12 +179,9 @@ function renderCards(monthly, positions){
   const turnover = (totalLeft / avgHead * 100);
   const turnoverOk = turnover <= 12;
 
-  const open = positions.filter(p=>p.status==='진행중');
-  const byPosition = {};
-  open.forEach(p=>{ byPosition[p.position] = (byPosition[p.position]||0)+1; });
-  const breakdown = Object.entries(byPosition).map(([k,v])=>`${k} ${v}`).join(' · ') || '진행 중인 포지션 없음';
-  const oldest = open.length ? open.reduce((a,b)=> new Date(a.opened_date) < new Date(b.opened_date) ? a : b) : null;
-  const oldestDays = oldest ? Math.floor((Date.now()-new Date(oldest.opened_date))/86400000) : 0;
+  const revPerHead = cur.revenue / cur.headcount;
+  const revPerHeadPrev = prev.revenue / prev.headcount;
+  const revChange = ((revPerHead - revPerHeadPrev) / revPerHeadPrev * 100);
 
   document.getElementById('turnover-val').textContent = turnover.toFixed(1)+'%';
 
@@ -268,9 +202,9 @@ function renderCards(monthly, positions){
       <span class="badge ${turnoverOk?'ok':'warn'}">목표 12% ${turnoverOk?'이내':'초과'}</span>
     </div>
     <div class="card">
-      <div class="label">채용 진행 현황</div>
-      <div class="value">${open.length}<small>개 포지션</small></div>
-      <div class="sub">${breakdown}${oldest?` · 최장 ${oldestDays}일째`:''}</div>
+      <div class="label">1인당 매출</div>
+      <div class="value">${fmt(Math.round(revPerHead))}<small>만원</small></div>
+      <div class="sub">전월 대비 ${revChange>=0?'▲':'▼'} ${Math.abs(revChange).toFixed(1)}%</div>
     </div>
   `;
 }
@@ -334,32 +268,23 @@ function renderDeptTable(dept){
     </tr>`).join('');
 }
 
-function renderPipelineTable(pipeline){
-  const stages = [...new Set(pipeline.map(p=>p.stage))]
-    .sort((a,b)=>{
-      const pa = pipeline.find(p=>p.stage===a).sort_order;
-      const pb = pipeline.find(p=>p.stage===b).sort_order;
-      return pa-pb;
-    });
-  const positions = [...new Set(pipeline.map(p=>p.position))];
+function renderOvertimeTable(ot){
+  const buckets = ['0h','1-10','11-20','21-30','30h+'];
+  const depts = [...new Set(ot.map(o=>o.dept))];
+  const max = Math.max(...ot.map(o=>o.count));
 
-  document.getElementById('pipe-head').innerHTML =
-    '<th>포지션</th>' + stages.map(s=>`<th style="text-align:center;">${s}</th>`).join('') +
-    '<th style="text-align:center;">전환율</th>';
+  document.getElementById('ot-head').innerHTML =
+    '<th>부서</th>' + buckets.map(b=>`<th style="text-align:center;">${b}</th>`).join('');
 
-  document.getElementById('pipe-body').innerHTML = positions.map(pos=>{
-    const rows = stages.map(s=>{
-      const rec = pipeline.find(p=>p.position===pos && p.stage===s);
-      return rec ? rec.count : 0;
-    });
-    const max = Math.max(...rows);
-    const cells = rows.map(count=>{
+  document.getElementById('ot-body').innerHTML = depts.map(dept=>{
+    const cells = buckets.map(b=>{
+      const rec = ot.find(o=>o.dept===dept && o.bucket===b);
+      const count = rec ? rec.count : 0;
       const opacity = (count/max*0.85+0.1).toFixed(2);
       const textColor = opacity>0.55 ? '#fff' : 'var(--gray-900)';
-      return `<td class="pipe-cell" style="background:rgba(124,58,237,${opacity});color:${textColor};">${count}</td>`;
+      return `<td class="ot-cell" style="background:rgba(124,58,237,${opacity});color:${textColor};">${count}</td>`;
     }).join('');
-    const conv = rows[0] ? ((rows[rows.length-1]/rows[0])*100).toFixed(1) : '0.0';
-    return `<tr><td>${pos}</td>${cells}<td class="amt">${conv}%</td></tr>`;
+    return `<tr><td>${dept}</td>${cells}</tr>`;
   }).join('');
 }
 
